@@ -1,242 +1,269 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, ChevronLeft, Trash2, Check } from 'lucide-react';
 
-// Recreated SVG Logo based on the user's uploaded image
 const AppIcon = () => (
-  <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="10" y="10" width="80" height="80" rx="15" stroke="black" strokeWidth="6" fill="white"/>
-    <circle cx="30" cy="30" r="9" fill="black"/>
-    <path d="M25 30 l4 4 l7 -7" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-    <line x1="48" y1="30" x2="80" y2="30" stroke="black" strokeWidth="6" strokeLinecap="round"/>
+  <svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="12" y="12" width="76" height="76" rx="22" stroke="black" strokeWidth="4" fill="white"/>
     
-    <circle cx="30" cy="50" r="9" fill="black"/>
-    <path d="M25 50 l4 4 l7 -7" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-    <line x1="48" y1="50" x2="80" y2="50" stroke="black" strokeWidth="6" strokeLinecap="round"/>
+    <circle cx="30" cy="32" r="7" fill="black"/>
+    <path d="M 26 33 L 29 36 L 34 29" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <line x1="46" y1="32" x2="72" y2="32" stroke="black" strokeWidth="4" strokeLinecap="round"/>
     
-    <circle cx="30" cy="70" r="9" fill="black"/>
-    <path d="M25 70 l4 4 l7 -7" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-    <line x1="48" y1="70" x2="80" y2="70" stroke="black" strokeWidth="6" strokeLinecap="round"/>
+    <circle cx="30" cy="50" r="7" fill="black"/>
+    <path d="M 26 51 L 29 54 L 34 47" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <line x1="46" y1="50" x2="72" y2="50" stroke="black" strokeWidth="4" strokeLinecap="round"/>
+    
+    <circle cx="30" cy="68" r="7" fill="black"/>
+    <path d="M 26 69 L 29 72 L 34 65" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <line x1="46" y1="68" x2="72" y2="68" stroke="black" strokeWidth="4" strokeLinecap="round"/>
   </svg>
 );
 
+const DEFAULT_LISTS = [
+  { id: '1', name: 'Daily Errands', tasks: [] },
+  { id: '2', name: 'Grocery List', tasks: [] },
+  { id: '3', name: 'Things To Do Today', tasks: [] }
+];
+
+// --- Reusable UI Components ---
+
+const AddItemForm = ({ placeholder, onSubmit }) => {
+  const [value, setValue] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!value.trim()) return;
+    onSubmit(value);
+    setValue('');
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="w-full flex items-stretch border-2 border-black bg-white my-6">
+      {/* appearance-none and rounded-none fix the ugly Android WebView default styling */}
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        autoComplete="off"
+        className="flex-1 w-full appearance-none rounded-none bg-transparent border-0 p-5 text-xl font-bold text-black placeholder-black focus:outline-none focus:ring-0"
+      />
+      <button 
+        type="submit"
+        disabled={!value.trim()}
+        aria-label={`Submit ${placeholder}`}
+        className="px-6 border-l-2 border-black flex items-center justify-center bg-white text-black active:bg-black active:text-white transition-none disabled:opacity-50"
+      >
+        <Plus size={32} strokeWidth={2.5} />
+      </button>
+    </form>
+  );
+};
+
+const ListCard = ({ list, onClick, onDelete }) => (
+  <div className="w-full flex items-center justify-between py-6 border-b-2 border-black bg-white">
+    <button 
+      type="button"
+      onClick={onClick}
+      className="flex-1 text-left active:bg-black active:text-white transition-none px-2 py-2"
+    >
+      <h3 className="text-2xl font-bold text-black mb-1">{list.name}</h3>
+      <p className="text-sm font-bold tracking-widest uppercase text-black">
+        {list.tasks.filter(t => t.completed).length} / {list.tasks.length} Tasks
+      </p>
+    </button>
+    <button 
+      type="button"
+      aria-label={`Delete list: ${list.name}`}
+      onClick={onDelete}
+      className="p-4 ml-4 text-black active:bg-black active:text-white border-2 border-transparent active:border-black rounded-none transition-none"
+    >
+      <Trash2 size={28} strokeWidth={2} />
+    </button>
+  </div>
+);
+
+const TaskItem = ({ task, onToggle, onDelete }) => (
+  <div className="w-full flex items-center justify-between py-5 border-b-2 border-black bg-white">
+    <button 
+      type="button"
+      onClick={onToggle}
+      className="flex-1 flex items-center text-left active:bg-black active:text-white transition-none px-2 py-2"
+    >
+      {/* High contrast, fool-proof checkbox */}
+      <div className={`w-8 h-8 flex-shrink-0 border-2 border-black flex items-center justify-center mr-5 transition-none ${
+        task.completed ? 'bg-black text-white' : 'bg-white'
+      }`}>
+        {task.completed && <Check size={20} strokeWidth={4} />}
+      </div>
+      
+      <span className={`text-xl font-bold ${task.completed ? 'line-through' : 'text-black'}`}>
+        {task.text}
+      </span>
+    </button>
+    
+    <button 
+      type="button"
+      aria-label={`Delete task: ${task.text}`}
+      onClick={onDelete}
+      className="p-4 ml-4 text-black active:bg-black active:text-white border-2 border-transparent active:border-black rounded-none transition-none flex-shrink-0"
+    >
+      <Trash2 size={28} strokeWidth={2} />
+    </button>
+  </div>
+);
+
+// --- Screen Components ---
+
+const HomeScreen = ({ lists, onListClick, onDeleteList, onAddList }) => (
+  <div className="w-full min-h-screen flex flex-col bg-white">
+    <header className="w-full pt-12 pb-8 flex flex-col items-center border-b-4 border-black px-6">
+      <AppIcon />
+      <h1 className="text-2xl font-bold tracking-widest mt-4 text-center text-black">DailyTasks</h1>
+    </header>
+
+    <main className="flex-1 w-full px-6 flex flex-col">
+      {lists.length === 0 ? (
+        <div className="py-16 w-full text-center">
+          <p className="text-lg font-bold tracking-widest uppercase text-black">No Lists Found</p>
+        </div>
+      ) : (
+        <div className="w-full flex flex-col">
+          {lists.map(list => (
+            <ListCard 
+              key={list.id} 
+              list={list} 
+              onClick={() => onListClick(list.id)} 
+              onDelete={() => onDeleteList(list.id)} 
+            />
+          ))}
+        </div>
+      )}
+      
+      {/* Added at the bottom of the list for easy access without sticky positioning bugs */}
+      <AddItemForm placeholder="New list name..." onSubmit={onAddList} />
+    </main>
+  </div>
+);
+
+const TaskScreen = ({ list, onBack, onAddTask, onToggleTask, onDeleteTask }) => (
+  <div className="w-full min-h-screen flex flex-col bg-white">
+    <header className="w-full pt-8 pb-6 px-6 flex items-center gap-4 border-b-4 border-black bg-white">
+      <button 
+        type="button"
+        aria-label="Back to lists"
+        onClick={onBack}
+        className="p-3 text-black border-2 border-black active:bg-black active:text-white transition-none"
+      >
+        <ChevronLeft size={32} strokeWidth={2.5} />
+      </button>
+      <h1 className="text-2xl font-bold tracking-wider truncate flex-1 text-black">{list.name}</h1>
+    </header>
+
+    <main className="flex-1 w-full px-6 flex flex-col">
+      {list.tasks.length === 0 ? (
+        <div className="py-16 w-full text-center">
+          <p className="text-lg font-bold tracking-widest uppercase text-black">List is empty</p>
+        </div>
+      ) : (
+        <div className="w-full flex flex-col">
+          {list.tasks.map(task => (
+            <TaskItem 
+              key={task.id} 
+              task={task} 
+              onToggle={() => onToggleTask(task.id)} 
+              onDelete={() => onDeleteTask(task.id)} 
+            />
+          ))}
+        </div>
+      )}
+      
+      <AddItemForm placeholder="Add a task..." onSubmit={onAddTask} />
+    </main>
+  </div>
+);
+
+// --- Main Application ---
+
 export default function App() {
-  // State Management
   const [lists, setLists] = useState(() => {
-    const saved = localStorage.getItem('dailytasks_lists');
-    if (saved) return JSON.parse(saved);
-    return [
-      { id: '1', name: 'Daily Errands', tasks: [] },
-      { id: '2', name: 'Grocery List', tasks: [] },
-      { id: '3', name: 'Things To Do Today', tasks: [] }
-    ];
+    try {
+      const saved = localStorage.getItem('dailytasks_lists');
+      return saved ? JSON.parse(saved) : DEFAULT_LISTS;
+    } catch {
+      return DEFAULT_LISTS;
+    }
   });
   
   const [currentListId, setCurrentListId] = useState(null);
-  const [newListName, setNewListName] = useState('');
-  const [newTaskText, setNewTaskText] = useState('');
 
-  // Save to local storage on change
   useEffect(() => {
-    localStorage.setItem('dailytasks_lists', JSON.stringify(lists));
+    try {
+      localStorage.setItem('dailytasks_lists', JSON.stringify(lists));
+    } catch (err) {
+      console.error('Failed to save lists', err);
+    }
   }, [lists]);
 
-  // Handlers
-  const addList = (e) => {
-    e.preventDefault();
-    if (!newListName.trim()) return;
-    const newList = {
-      id: Date.now().toString(),
-      name: newListName.trim(),
-      tasks: []
-    };
-    setLists([...lists, newList]);
-    setNewListName('');
+  const addList = (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const newList = { id: crypto.randomUUID(), name: trimmed, tasks: [], createdAt: Date.now() };
+    setLists(prev => [...prev, newList]);
   };
 
-  const deleteList = (id, e) => {
-    e.stopPropagation();
-    setLists(lists.filter(l => l.id !== id));
+  const deleteList = (id) => {
+    setLists(prev => prev.filter(l => l.id !== id));
+    if (currentListId === id) setCurrentListId(null);
   };
 
-  const addTask = (e) => {
-    e.preventDefault();
-    if (!newTaskText.trim() || !currentListId) return;
-    
-    setLists(lists.map(list => {
-      if (list.id === currentListId) {
-        return {
-          ...list,
-          tasks: [...list.tasks, { id: Date.now().toString(), text: newTaskText.trim(), completed: false }]
-        };
-      }
-      return list;
-    }));
-    setNewTaskText('');
+  const addTask = (text) => {
+    const trimmed = text.trim();
+    if (!trimmed || !currentListId) return;
+    setLists(prev => prev.map(list => 
+      list.id === currentListId 
+        ? { ...list, tasks: [...list.tasks, { id: crypto.randomUUID(), text: trimmed, completed: false, createdAt: Date.now() }] }
+        : list
+    ));
   };
 
   const toggleTask = (taskId) => {
-    setLists(lists.map(list => {
-      if (list.id === currentListId) {
-        return {
-          ...list,
-          tasks: list.tasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
-        };
-      }
-      return list;
-    }));
+    setLists(prev => prev.map(list => 
+      list.id === currentListId 
+        ? { ...list, tasks: list.tasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t) }
+        : list
+    ));
   };
 
   const deleteTask = (taskId) => {
-    setLists(lists.map(list => {
-      if (list.id === currentListId) {
-        return { ...list, tasks: list.tasks.filter(t => t.id !== taskId) };
-      }
-      return list;
-    }));
+    setLists(prev => prev.map(list => 
+      list.id === currentListId 
+        ? { ...list, tasks: list.tasks.filter(t => t.id !== taskId) }
+        : list
+    ));
   };
 
   const currentList = lists.find(l => l.id === currentListId);
 
   return (
-    <div className="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white pb-20">
-      {/* Mobile Constraint Container */}
-      <div className="max-w-md mx-auto border-x-4 border-black min-h-screen bg-white shadow-2xl flex flex-col">
-        
-        {/* === HOME SCREEN === */}
-        {!currentListId && (
-          <>
-            <header className="border-b-4 border-black p-6 flex items-center gap-4 bg-white">
-              <AppIcon />
-              <h1 className="text-3xl font-black tracking-tight">DailyTasks</h1>
-            </header>
-
-            <main className="flex-1 p-6 space-y-6">
-              <h2 className="text-xl font-bold uppercase border-b-4 border-black pb-2 inline-block">My Lists</h2>
-              
-              <div className="space-y-4">
-                {lists.map(list => (
-                  <div 
-                    key={list.id} 
-                    onClick={() => setCurrentListId(list.id)}
-                    className="group border-4 border-black p-5 flex justify-between items-center cursor-pointer active:bg-black active:text-white transition-none"
-                  >
-                    <div>
-                      <h3 className="text-2xl font-bold">{list.name}</h3>
-                      <p className="text-sm font-bold mt-1 uppercase">
-                        {list.tasks.filter(t => t.completed).length} / {list.tasks.length} Done
-                      </p>
-                    </div>
-                    <button 
-                      onClick={(e) => deleteList(list.id, e)}
-                      className="p-2 border-4 border-transparent group-active:border-white hover:border-black active:bg-white active:text-black"
-                    >
-                      <Trash2 size={28} strokeWidth={3} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {lists.length === 0 && (
-                <div className="border-4 border-black border-dashed p-8 text-center">
-                  <p className="font-bold text-lg uppercase">No lists created yet.</p>
-                </div>
-              )}
-            </main>
-
-            <footer className="p-6 border-t-4 border-black bg-white mt-auto">
-              <form onSubmit={addList} className="flex gap-3">
-                <input
-                  type="text"
-                  placeholder="NEW LIST NAME..."
-                  value={newListName}
-                  onChange={(e) => setNewListName(e.target.value)}
-                  className="flex-1 border-4 border-black p-4 text-xl font-bold placeholder-black/50 focus:outline-none focus:ring-4 focus:ring-black focus:ring-offset-2"
-                />
-                <button 
-                  type="submit"
-                  className="bg-black text-white px-6 py-4 border-4 border-black font-black flex items-center justify-center active:bg-white active:text-black active:border-black transition-none"
-                >
-                  <Plus size={32} strokeWidth={4} />
-                </button>
-              </form>
-            </footer>
-          </>
-        )}
-
-        {/* === LIST TASKS SCREEN === */}
-        {currentListId && currentList && (
-          <>
-            <header className="border-b-4 border-black p-4 flex items-center gap-4 bg-white sticky top-0 z-10">
-              <button 
-                onClick={() => setCurrentListId(null)}
-                className="p-2 border-4 border-black active:bg-black active:text-white"
-              >
-                <ChevronLeft size={32} strokeWidth={4} />
-              </button>
-              <h1 className="text-2xl font-black tracking-tight truncate flex-1">{currentList.name}</h1>
-            </header>
-
-            <main className="flex-1 p-4 space-y-4">
-              {currentList.tasks.length === 0 ? (
-                <div className="border-4 border-black border-dashed p-8 text-center mt-4">
-                  <p className="font-bold text-lg uppercase">List is empty.</p>
-                  <p className="font-bold text-sm uppercase mt-2">Add a task below.</p>
-                </div>
-              ) : (
-                currentList.tasks.map(task => (
-                  <div 
-                    key={task.id}
-                    onClick={() => toggleTask(task.id)}
-                    className={`border-4 border-black p-4 flex items-center gap-4 cursor-pointer active:bg-black active:text-white transition-none ${task.completed ? 'bg-black/5' : 'bg-white'}`}
-                  >
-                    {/* E-ink optimized Checkbox */}
-                    <div className={`w-10 h-10 flex-shrink-0 border-4 border-black flex items-center justify-center transition-none ${task.completed ? 'bg-black' : 'bg-white'}`}>
-                      {task.completed && <Check size={28} strokeWidth={5} color="white" />}
-                    </div>
-                    
-                    <div className="flex-1 flex flex-col">
-                      <span className={`text-xl font-bold break-words leading-tight ${task.completed ? 'line-through decoration-4' : ''}`}>
-                        {task.text}
-                      </span>
-                    </div>
-
-                    {task.completed && (
-                       <span className="bg-black text-white text-xs font-black px-2 py-1 uppercase tracking-widest border-2 border-black">
-                         Done
-                       </span>
-                    )}
-
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                      className="p-3 ml-2 border-4 border-transparent hover:border-black active:bg-white active:text-black transition-none"
-                    >
-                      <Trash2 size={24} strokeWidth={3} />
-                    </button>
-                  </div>
-                ))
-              )}
-            </main>
-
-            <footer className="p-4 border-t-4 border-black bg-white sticky bottom-0 z-10">
-              <form onSubmit={addTask} className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="ADD NEW TASK..."
-                  value={newTaskText}
-                  onChange={(e) => setNewTaskText(e.target.value)}
-                  className="flex-1 border-4 border-black p-4 text-xl font-bold placeholder-black/50 focus:outline-none focus:ring-4 focus:ring-black focus:ring-offset-2"
-                />
-                <button 
-                  type="submit"
-                  className="bg-black text-white px-5 py-4 border-4 border-black font-black flex items-center justify-center active:bg-white active:text-black active:border-black transition-none"
-                >
-                  <Plus size={32} strokeWidth={4} />
-                </button>
-              </form>
-            </footer>
-          </>
-        )}
-      </div>
+    // Max width wrapper removed. We want the app to naturally stretch to the physical device screen bounds.
+    <div className="w-full min-h-screen bg-white text-black font-sans antialiased">
+      {!currentListId || !currentList ? (
+        <HomeScreen 
+          lists={lists} 
+          onListClick={setCurrentListId} 
+          onDeleteList={deleteList} 
+          onAddList={addList} 
+        />
+      ) : (
+        <TaskScreen 
+          list={currentList} 
+          onBack={() => setCurrentListId(null)} 
+          onAddTask={addTask} 
+          onToggleTask={toggleTask} 
+          onDeleteTask={deleteTask} 
+        />
+      )}
     </div>
   );
 }
